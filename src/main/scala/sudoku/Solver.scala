@@ -4,9 +4,6 @@ import regolic.api.API._
 import regolic.asts.core.Trees._
 import regolic.asts.fol.Trees._
 
-import regolic.sat.DPLL._
-import regolic.sat.Literal
-
 object Solver {
 
   def solver(sudoku: Array[Array[Option[Int]]]): Option[Array[Array[Int]]] = {
