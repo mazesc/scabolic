@@ -12,6 +12,19 @@ object Sat4jRunner {
 
     val dir = new File(args(0))
     val benchmarks = recursiveListFiles(dir)
+    (1 to 3).foreach(_ => {
+      val solver: ISolver = SolverFactory.newDefault()
+      solver.setTimeout(3600)
+      val reader: Reader = new DimacsReader(solver)
+      val problem: IProblem = reader.parseInstance(benchmarks(0).getPath)
+      if(problem.isSatisfiable()) {
+        println(" Satisfiable ! ")
+      } else {
+        println("unsat")
+      }
+    })
+
+    val start = System.currentTimeMillis
     benchmarks.foreach(f => {
       val solver: ISolver = SolverFactory.newDefault()
       solver.setTimeout(3600)
@@ -23,6 +36,8 @@ object Sat4jRunner {
         println("unsat")
       }
     })
+    val end = System.currentTimeMillis
+    println("Average time: " + ((end-start)/1000d/benchmarks.size))
   }
 
   private def recursiveListFiles(f: File): Array[File] = {
