@@ -21,11 +21,11 @@ class Encoding {
   val theory = new ArrayBuffer[Formula]()
   val theoryOrig = new ArrayBuffer[Formula]()
 
-  val funEqs = new ArrayBuffer[Formula]()
+  val funEqs = collection.mutable.Set[Formula]()
 
   def setEquiv(id: Int, f: Formula, fOrig: Formula) {
     // Invariant, id is the amount of calls to setEquiv
-    this.id(f) = id
+    this.id += (f -> id)
     theory += f
     theoryOrig += fOrig
   }
@@ -68,7 +68,7 @@ object PropositionalSkeleton {
           case Equals(_, _) => {
             val flat = Flattener(Currifier(f))
             val repr = encoding.get(flat.head) match {
-              case Some(repr) => new Literal(repr, TLiteral)
+              case Some(reprID) => new Literal(reprID, TLiteral)
               case None => {
                 val reprID = TLiteralID.next
                 encoding.setEquiv(reprID, flat.head, f) 

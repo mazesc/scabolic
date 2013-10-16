@@ -13,6 +13,8 @@ import regolic.dpllt.Results._
 
 import regolic.sexpr.SExprs._
 
+import scala.collection.mutable.Stack
+
 // Interface similar to the one described in "DPLL(T): Fast Decision Procedures"
 // by Ganzinger, Hagen, Nieuwenhuis, Oliveras, Tinelli
 trait TheorySolver {
@@ -34,6 +36,8 @@ trait TheorySolver {
   var reason: Formula
 
   var time: Double
+
+  val iStack: Stack[Pair[Int, Formula]]
 }
 
 object TheorySolver {
