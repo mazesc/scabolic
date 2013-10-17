@@ -394,7 +394,7 @@ class DPLLTSolver(nbVars: Int, nbTVars: Int, tSolver: TheorySolver, encoding: En
       if(litsUnique.size == 1) {
         val id = litsUnique.head >> 1
         if(model(id) == -1) {
-          tEnqueueLiteral(litsUnique.head, new Clause(Array.empty[Int]))
+          tEnqueueLiteral(litsUnique.head, cl)
           if(status == Conflict) {
             status = Unsatisfiable
           }
@@ -440,7 +440,6 @@ class DPLLTSolver(nbVars: Int, nbTVars: Int, tSolver: TheorySolver, encoding: En
 
     topLevelStopWatch.time {
 
-      println("1 deduce")
       deduceStopWatch.time {
         deduce()
       }
@@ -464,10 +463,48 @@ class DPLLTSolver(nbVars: Int, nbTVars: Int, tSolver: TheorySolver, encoding: En
         while(cont) {
           //assertWatchedInvariant
           //assertTrailInvariant
-          println("2 deduce")
           deduceStopWatch.time {
             deduce()
           }
+
+    fcnt += 1
+    import regolic.asts.core.SmtLib2
+    var head = if(status == Conflict)
+      scala.io.Source.fromFile("unsat_header.txt").mkString
+    else 
+      scala.io.Source.fromFile("sat_header.txt").mkString
+    var propsDef = scala.io.Source.fromFile("props.txt").mkString
+    var phi = scala.io.Source.fromFile("phi.txt").mkString
+    var assertString = "(assert\n(and\n"+ phi + "\n"
+    val props = collection.mutable.Set[Int]()
+    var i = 0
+    while(i < model.size) {
+      if(model(i) != -1) {
+        if(i < nbTVars) {
+          if((model(i) & 1) == 1)
+            assertString += SmtLib2(encoding.theory(i)) +"\n"
+          else
+            assertString += SmtLib2(Not(encoding.theory(i))) +"\n"
+        } else {
+          if((model(i) & 1) == 1) {
+            assertString += "prop_"+ i +"\n"
+            props += i
+          } else {
+            assertString += "(not prop_"+ i +")\n"
+            props += i
+          }
+        }
+      }
+      i += 1
+    }
+    assertString += "\n))"
+    head += propsDef
+    val fw = new FileWriter("debug_output/out"+ fcnt +".smt2")
+    fw.write(head + assertString +"\n(check-sat)\n(exit)")
+    fw.close
+
+
+          
 
           if(status == Conflict) {
             backtrackStopWatch.time {
@@ -799,10 +836,10 @@ class DPLLTSolver(nbVars: Int, nbTVars: Int, tSolver: TheorySolver, encoding: En
       trail.push(lit)
       reasons(id) = from
       if(from != null) {
-        //assert(from.lits.head == lit)
-        //assert(from.lits.tail.forall(lit => isAssigned(lit)))
-        //assert(from.lits.tail.forall(lit => isUnsat(lit)))
-        //assert(from.lits.tail.forall(lit => trail.contains(lit>>1)))
+        assert(from.lits.head == lit)
+        assert(from.lits.tail.forall(lit => isAssigned(lit)))
+        assert(from.lits.tail.forall(lit => isUnsat(lit)))
+        assert(from.lits.tail.forall(lit => trail.contains(lit ^ 1)))
         from.locked = true
       }
       levels(id) = decisionLevel
@@ -920,43 +957,6 @@ class DPLLTSolver(nbVars: Int, nbTVars: Int, tSolver: TheorySolver, encoding: En
       // propositional literal
       enqueueLiteral(lit, from)
     }
-
-    fcnt += 1
-    import regolic.asts.core.SmtLib2
-    var head = if(status == Conflict)
-      scala.io.Source.fromFile("unsat_header.txt").mkString
-    else 
-      scala.io.Source.fromFile("sat_header.txt").mkString
-    var propsDef = scala.io.Source.fromFile("props.txt").mkString
-    var phi = scala.io.Source.fromFile("phi.txt").mkString
-    var assertString = "(assert\n(and\n"+ phi + "\n"
-    val props = collection.mutable.Set[Int]()
-    var i = 0
-    while(i < model.size) {
-      if(model(i) != -1) {
-        if(i < nbTVars) {
-          if((model(i) & 1) == 1)
-            assertString += SmtLib2(encoding.theory(i)) +"\n"
-          else
-            assertString += SmtLib2(Not(encoding.theory(i))) +"\n"
-        } else {
-          if((model(i) & 1) == 1) {
-            assertString += "prop_"+ i +"\n"
-            props += i
-          } else {
-            assertString += "(not prop_"+ i +")\n"
-            props += i
-          }
-        }
-      }
-      i += 1
-    }
-    assertString += "\n))"
-    head += propsDef
-    val fw = new FileWriter("tenqueue/out"+ fcnt +".smt2")
-    fw.write(head + assertString +"\n(check-sat)\n(exit)")
-    fw.close
-                
 
 
   }
@@ -1117,13 +1117,30 @@ class DPLLTSolver(nbVars: Int, nbTVars: Int, tSolver: TheorySolver, encoding: En
     }
   }
 
+  def printlit(l: Int) {
+    if((l >> 1) < nbTVars)
+      println(if((l & 1) == 0) encoding.theory(l >> 1) else Not(encoding.theory(l>>1)))
+    else
+      println(if((l & 1) == 0) (l >> 1) else "-"+ (l>>1))
+  }
   private[this] def deduce() {
     println("in deduce @ "+ decisionLevel +", status: "+ status)
 
     println("qHead: "+ qHead +", trail.size: "+ trail.size)
+    println("trail:\n")
+    var trailCnt = 0
+    while (trailCnt < trail.size) {
+      val l = trail.get(trailCnt)
+      printlit(l)
+      trailCnt += 1
+    }
+                
     while(qHead < trail.size && status != Conflict) {
 
       val forcedLit = trail(qHead)
+      println("forcedLit:")
+      printlit(forcedLit)
+      
       //negatedLit is the literals that are made false and need updating of watchers
       val negatedLit = forcedLit ^ 1
       assert(isAssigned(negatedLit))
